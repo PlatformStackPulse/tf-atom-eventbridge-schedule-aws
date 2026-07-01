@@ -3,13 +3,35 @@
 [![CI](https://github.com/PlatformStackPulse/tf-atom-eventbridge-schedule-aws/actions/workflows/ci.yml/badge.svg)](https://github.com/PlatformStackPulse/tf-atom-eventbridge-schedule-aws/actions/workflows/ci.yml)
 ![Terraform](https://img.shields.io/badge/terraform-%3E%3D1.6.0-blueviolet)
 
-## Purpose
+Terraform atom that provisions a single Amazon EventBridge Scheduler schedule (`aws_scheduler_schedule`) to invoke one target on a cron/rate/at expression.
 
-Terraform atom: AWS EventBridge Scheduler schedule (`aws_scheduler_schedule`) — the
-modern, recommended replacement for CloudWatch Events scheduled rules. Invokes one
-target (Lambda/SQS/…) on a `rate()`/`cron()`/`at()` expression, with an optional
-flexible time window, timezone, dead-letter queue, and retry policy. Pair it with
-`tf-molecule-eventbridge-schedule-aws` to get the invocation IAM role too.
+## Features
+
+- Creates one `aws_scheduler_schedule` — the modern, recommended replacement for CloudWatch Events scheduled rules.
+- Supports `rate()`, `cron()`, and `at()` schedule expressions with a configurable IANA timezone.
+- Flexible time window (`OFF` for an exact run time, or `FLEXIBLE` with a maximum window to spread load).
+- Optional start/end date bounds (`start_date` / `end_date`) and `ENABLED`/`DISABLED` state control.
+- Optional static JSON payload (`target_input`) delivered to the target on each invocation.
+- Optional dead-letter queue (`dead_letter_arn`) and retry policy (`maximum_retry_attempts`, `maximum_event_age_in_seconds`).
+- Optional customer-managed KMS key (`kms_key_arn`) to encrypt the schedule's data.
+- `tf-label` naming/tagging via `module.this`, with an `enabled` toggle to create nothing.
+- Invocation IAM is intentionally out of scope — pass a ready `target_role_arn`, or compose the role with `tf-molecule-eventbridge-schedule-aws`.
+
+## Usage
+
+```hcl
+module "eventbridge_schedule" {
+  source = "git::https://github.com/PlatformStackPulse/tf-atom-eventbridge-schedule-aws.git?ref=v1.0.0"
+
+  namespace = "eg"
+  stage     = "prod"
+  name      = "nightly-report"
+
+  schedule_expression = "rate(5 minutes)"
+  target_arn          = "arn:aws:lambda:eu-west-1:123456789012:function:eg-prod-nightly-report"
+  target_role_arn     = "arn:aws:iam::123456789012:role/eg-prod-nightly-report-scheduler"
+}
+```
 
 ## Module Documentation
 
@@ -86,3 +108,12 @@ flexible time window, timezone, dead-letter queue, and retry policy. Pair it wit
 | <a name="output_group_name"></a> [group\_name](#output\_group\_name) | Name of the schedule group the schedule belongs to |
 | <a name="output_name"></a> [name](#output\_name) | Name of the EventBridge schedule |
 <!-- END_TF_DOCS -->
+
+## Tests
+
+Plan-only unit tests (mocked AWS provider, no real infrastructure) live in `tests/unit/`:
+
+```bash
+terraform init -backend=false && terraform test
+```
+
